@@ -111,7 +111,7 @@ async def settings_query(bot, query):
             "<b>Process canceled</b>",
             reply_markup=InlineKeyboardMarkup(buttons))
        
-@gf.on(events.NewMessage()
+@gf.on(events.NewMessage())
 async def handle_conversation_input(event):
     user_id = event.sender_id
     if user_id not in active_conversations or event.message.text.startswith('/'):
