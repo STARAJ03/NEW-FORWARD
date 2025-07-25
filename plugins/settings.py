@@ -126,9 +126,7 @@ async def handle_setchat(event, user_id):
     except Exception as e:
         await event.respond(f'❌ Error setting chat ID: {e}')
 
-    
-
-  elif type=="editbot": 
+  elif type=="editbot":
      bot = await db.get_bot(user_id)
      TEXT = Script.BOT_DETAILS if bot['is_bot'] else Script.USER_DETAILS
      buttons = [[InlineKeyboardButton('❌ Remove ❌', callback_data=f"settings#removebot")
