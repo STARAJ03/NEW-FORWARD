@@ -82,6 +82,19 @@ async def settings_query(bot, query):
         "<b>session successfully added to db</b>",
         reply_markup=InlineKeyboardMarkup(buttons))
 
+  elif type=="channels":
+     buttons = []
+     channels = await db.get_user_channels(user_id)
+     for channel in channels:
+        buttons.append([InlineKeyboardButton(f"{channel['title']}",
+                         callback_data=f"settings#editchannels_{channel['chat_id']}")])
+     buttons.append([InlineKeyboardButton('✚ Add Channel ✚', 
+                      callback_data="settings#addchannel")])
+     buttons.append([InlineKeyboardButton('back', 
+                      callback_data="settings#main")])
+     await query.message.edit_text( 
+       "<b><u>My Channels</b></u>\n\n<b>you can manage your target chats in here</b>",
+       reply_markup=InlineKeyboardMarkup(buttons))
   elif type == "addchannel":
      await query.message.delete()
      async def callback_query_handler(event):
