@@ -112,27 +112,35 @@ async def settings_query(bot, query):
         )
 
     # Extract and validate input
-        user_input = chat_input.text.strip()
+       elif type == "addchannel":  
+    await query.message.delete()
+    
+    chat_input = await bot.ask(
+        chat_id=query.from_user.id,
+        text="<b>❪ SET TARGET CHAT ❫\n\nSend the @username or numeric ID of your target channel\n/cancel - cancel this process</b>"
+    )
 
-    # Extract channel ID if it's in "-1001234567890/1234" format
-    if "/" in user_input:
-        channel_part = user_input.split("/")[0]
-    else:
-        channel_part = user_input
+    if chat_input.text == "/cancel":
+        return await chat_input.reply_text(
+            "<b>Process canceled</b>",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
 
-    if channel_part.startswith("@"):
-        channel_identifier = channel_part
+    # Extract and validate input
+    user_input = chat_input.text.strip()
+
+    if user_input.startswith("@"):
+        channel_identifier = user_input  # Use @username
     else:
         try:
-            channel_identifier = int(channel_part)
+            channel_identifier = int(user_input)  # Try numeric ID
         except ValueError:
-            return await chat_input.reply("<b>Invalid input. Please provide a valid @username or channel ID.</b>")
+            return await chat_input.reply("<b>Invalid input. Please provide a valid @username or numeric ID.</b>")
 
     try:
         chat = await bot.get_chat(channel_identifier)
     except Exception as e:
-        return await chat_input.reply(
-            f"<b>❌ Could not access chat.</b>\n\nError: <code>{e}</code>\n\nMake sure:\n• The bot is added to the channel\n• The ID or @username is correct\n• The channel is not private or restricted.")
+        return await chat_input.reply(f"<b>Failed to find chat:</b> {e}")
 
     chat_id = chat.id
     title = chat.title
