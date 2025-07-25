@@ -95,18 +95,19 @@ async def settings_query(bot, query):
      await query.message.edit_text( 
        "<b><u>My Channels</b></u>\n\n<b>you can manage your target chats in here</b>",
        reply_markup=InlineKeyboardMarkup(buttons))
+     
   elif type == "addchannel":
      await query.message.delete()
      async def callback_query_handler(event):
-    user_id = event.sender_id
+        user_id = event.sender_id
     
-    callback_actions = {
-        b'setchat': {
-            'type': 'setchat',
-            'message': """Send me the ID of that chat(with -100 prefix):
-            __👉 **Note:** if you are using custom bot then your bot should be admin that chat if not then this bot should be admin.__
-            👉 __If you want to upload in topic group and in specific topic then pass chat id as **-100CHANNELID/TOPIC_ID** for example: **-1004783898/12**__"""
-           },
+        callback_actions = {
+           b'setchat': {
+              'type': 'setchat',
+              'message': """Send me the ID of that chat(with -100 prefix):
+              __👉 **Note:** if you are using custom bot then your bot should be admin that chat if not then this bot should be admin.__
+              👉 __If you want to upload in topic group and in specific topic then pass chat id as **-100CHANNELID/TOPIC_ID** for example: **-1004783898/12**__"""
+             },
        
         if event.data in callback_actions:
            action = callback_actions[event.data]
