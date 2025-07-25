@@ -78,44 +78,33 @@ async def settings_query(bot, query):
         "<b>session successfully added to db</b>",
         reply_markup=InlineKeyboardMarkup(buttons))
 
-  elif type=="channels":
-     buttons = []
-     channels = await db.get_user_channels(user_id)
-     for channel in channels:
-        buttons.append([InlineKeyboardButton(f"{channel['title']}",
-                         callback_data=f"settings#editchannels_{channel['chat_id']}")])
-     buttons.append([InlineKeyboardButton('✚ Add Channel ✚', 
-                      callback_data="settings#addchannel")])
-     buttons.append([InlineKeyboardButton('back', 
-                      callback_data="settings#main")])
-     await query.message.edit_text( 
-       "<b><u>My Channels</b></u>\n\n<b>you can manage your target chats in here</b>",
-       reply_markup=InlineKeyboardMarkup(buttons))
-
   elif type == "addchannel":
     await query.message.delete()
 
-    # Ask for input instead of forwarding
-    user_input = await bot.ask(
+    # First, send the prompt with formatting
+    await bot.send_message(
         chat_id=query.from_user.id,
         text=(
             "<b>❪ SET TARGET CHAT ❫</b>\n\n"
             "Send the chat ID (with -100 prefix), @username, or t.me link of the target channel.\n\n"
             "/cancel - cancel this process"
         ),
-        parse_mode="html"
+        parse_mode="HTML"
     )
+
+    # Then, wait for the user response without parse_mode
+    user_input = await bot.ask(chat_id=query.from_user.id)
 
     if user_input.text.strip() == "/cancel":
         return await user_input.reply_text(
             "<b>Process canceled.</b>",
             reply_markup=InlineKeyboardMarkup(buttons),
-            parse_mode="html"
+            parse_mode="HTML"
         )
 
     text = user_input.text.strip()
 
-    # Parse input (chat ID, @username, or t.me link)
+    # Parsing input (same as before)
     if text.startswith("https://t.me/"):
         username = text.split("/")[-1]
     elif text.startswith("@"):
@@ -129,12 +118,11 @@ async def settings_query(bot, query):
         except Exception as e:
             return await user_input.reply(
                 f"<b>Invalid chat ID:</b> {e}",
-                parse_mode="html"
+                parse_mode="HTML"
             )
     else:
         username = text
 
-    # Fallback if only username was provided
     if 'chat_id' not in locals():
         try:
             chat = await bot.get_chat(username)
@@ -144,7 +132,7 @@ async def settings_query(bot, query):
         except Exception as e:
             return await user_input.reply(
                 f"<b>Invalid username or link:</b> {e}",
-                parse_mode="html"
+                parse_mode="HTML"
             )
 
     chat = await db.add_channel(query.from_user.id, chat_id, title, username)
@@ -152,7 +140,7 @@ async def settings_query(bot, query):
         query.from_user.id,
         "<b>✅ Channel added successfully.</b>" if chat else "<b>⚠️ This channel is already added.</b>",
         reply_markup=InlineKeyboardMarkup(buttons),
-        parse_mode="html"
+        parse_mode="HTML"
     )
 
   elif type=="editbot": 
