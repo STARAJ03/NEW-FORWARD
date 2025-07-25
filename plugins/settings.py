@@ -109,8 +109,8 @@ async def settings_query(bot, query):
     if chat_input.text == "/cancel":
         return await chat_input.reply_text(
             "<b>Process canceled</b>",
-            reply_markup=InlineKeyboardMarkup(buttons)
-        )
+            reply_markup=InlineKeyboardMarkup(buttons))
+       
 @gf.on(events.NewMessage()
 async def handle_conversation_input(event):
     user_id = event.sender_id
