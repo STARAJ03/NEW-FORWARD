@@ -92,24 +92,68 @@ async def settings_query(bot, query):
        "<b><u>My Channels</b></u>\n\n<b>you can manage your target chats in here</b>",
        reply_markup=InlineKeyboardMarkup(buttons))
 
-  elif type=="addchannel":  
-     await query.message.delete()
-     chat_ids = await bot.ask(chat_id=query.from_user.id, text="<b>❪ SET TARGET CHAT ❫\n\nForward a message from Your target chat\n/cancel - cancel this process</b>")
-     if chat_ids.text=="/cancel":
-        return await chat_ids.reply_text(
-                  "<b>process canceled</b>",
-                  reply_markup=InlineKeyboardMarkup(buttons))
-     elif not chat_ids.forward_date:
-        return await chat_ids.reply("**This is not a forward message**")
-     else:
-        chat_id = chat_ids.forward_from_chat.id
-        title = chat_ids.forward_from_chat.title
-        username = chat_ids.forward_from_chat.username
-        username = "@" + username if username else "private"
-     chat = await db.add_channel(user_id, chat_id, title, username)
-     await query.message.reply_text(
-        "<b>Successfully updated</b>" if chat else "<b>This channel already added</b>",
-        reply_markup=InlineKeyboardMarkup(buttons))
+  elif type == "addchannel":
+    await query.message.delete()
+
+    # Ask for input instead of forwarding
+    user_input = await bot.ask(
+        chat_id=query.from_user.id,
+        text=(
+            "<b>❪ SET TARGET CHAT ❫</b>\n\n"
+            "Send the chat ID (with -100 prefix), @username, or t.me link of the target channel.\n\n"
+            "/cancel - cancel this process"
+        ),
+        parse_mode="html"
+    )
+
+    if user_input.text.strip() == "/cancel":
+        return await user_input.reply_text(
+            "<b>Process canceled.</b>",
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode="html"
+        )
+
+    text = user_input.text.strip()
+
+    # Parse input (chat ID, @username, or t.me link)
+    if text.startswith("https://t.me/"):
+        username = text.split("/")[-1]
+    elif text.startswith("@"):
+        username = text[1:]
+    elif text.startswith("-100"):
+        try:
+            chat_id = int(text)
+            chat = await bot.get_chat(chat_id)
+            title = chat.title
+            username = f"@{chat.username}" if chat.username else "private"
+        except Exception as e:
+            return await user_input.reply(
+                f"<b>Invalid chat ID:</b> {e}",
+                parse_mode="html"
+            )
+    else:
+        username = text
+
+    # Fallback if only username was provided
+    if 'chat_id' not in locals():
+        try:
+            chat = await bot.get_chat(username)
+            chat_id = chat.id
+            title = chat.title
+            username = f"@{chat.username}" if chat.username else "private"
+        except Exception as e:
+            return await user_input.reply(
+                f"<b>Invalid username or link:</b> {e}",
+                parse_mode="html"
+            )
+
+    chat = await db.add_channel(query.from_user.id, chat_id, title, username)
+    await bot.send_message(
+        query.from_user.id,
+        "<b>✅ Channel added successfully.</b>" if chat else "<b>⚠️ This channel is already added.</b>",
+        reply_markup=InlineKeyboardMarkup(buttons),
+        parse_mode="html"
+    )
 
   elif type=="editbot": 
      bot = await db.get_bot(user_id)
