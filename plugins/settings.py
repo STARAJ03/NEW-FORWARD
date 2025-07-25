@@ -79,69 +79,100 @@ async def settings_query(bot, query):
         reply_markup=InlineKeyboardMarkup(buttons))
 
   elif type == "addchannel":
-    await query.message.delete()
-
-    # First, send the prompt with formatting
-    await bot.send_message(
-        chat_id=query.from_user.id,
-        text=(
-            "<b>❪ SET TARGET CHAT ❫</b>\n\n"
-            "Send the chat ID (with -100 prefix), @username, or t.me link of the target channel.\n\n"
-            "/cancel - cancel this process"
-        ),
-        parse_mode="HTML"
-    )
-
-    # Then, wait for the user response without parse_mode
-    user_input = await bot.ask(chat_id=query.from_user.id)
-
-    if user_input.text.strip() == "/cancel":
-        return await user_input.reply_text(
-            "<b>Process canceled.</b>",
-            reply_markup=InlineKeyboardMarkup(buttons),
-            parse_mode="HTML"
-        )
-
-    text = user_input.text.strip()
-
-    # Parsing input (same as before)
-    if text.startswith("https://t.me/"):
-        username = text.split("/")[-1]
-    elif text.startswith("@"):
-        username = text[1:]
-    elif text.startswith("-100"):
+     await query.message.delete()
+     async def callback_query_handler(event):
+    user_id = event.sender_id
+    
+    callback_actions = {
+        b'setchat': {
+            'type': 'setchat',
+            'message': """Send me the ID of that chat(with -100 prefix):
+            __👉 **Note:** if you are using custom bot then your bot should be admin that chat if not then this bot should be admin.__
+            👉 __If you want to upload in topic group and in specific topic then pass chat id as **-100CHANNELID/TOPIC_ID** for example: **-1004783898/12**__"""
+           },
+       
+        if event.data in callback_actions:
+           action = callback_actions[event.data]
+           await start_conversation(event, user_id, action['type'], action['message'])
+   elif event.data == b'logout':
+      result = await users_collection.update_one(
+      {'user_id': user_id},
+      {'$unset': {'session_string': ''}}
+         )
+        if result.modified_count > 0:
+            await event.respond('Logged out and deleted session successfully.')
+        else:
+            await event.respond('You are not logged in.')
+    elif event.data == b'reset':
         try:
-            chat_id = int(text)
-            chat = await bot.get_chat(chat_id)
-            title = chat.title
-            username = f"@{chat.username}" if chat.username else "private"
-        except Exception as e:
-            return await user_input.reply(
-                f"<b>Invalid chat ID:</b> {e}",
-                parse_mode="HTML"
+            await users_collection.update_one(
+                {'user_id': user_id},
+                {'$unset': {
+                    'delete_words': '',
+                    'replacement_words': '',
+                    'rename_tag': '',
+                    'caption': '',
+                    'chat_id': ''
+                }}
             )
-    else:
-        username = text
-
-    if 'chat_id' not in locals():
+            thumbnail_path = f'{user_id}.jpg'
+            if os.path.exists(thumbnail_path):
+                os.remove(thumbnail_path)
+            await event.respond('✅ All settings reset successfully. To logout, click /logout')
+        except Exception as e:
+            await event.respond(f'Error resetting settings: {e}')
+    elif event.data == b'remthumb':
         try:
-            chat = await bot.get_chat(username)
-            chat_id = chat.id
-            title = chat.title
-            username = f"@{chat.username}" if chat.username else "private"
-        except Exception as e:
-            return await user_input.reply(
-                f"<b>Invalid username or link:</b> {e}",
-                parse_mode="HTML"
-            )
+            os.remove(f'{user_id}.jpg')
+            await event.respond('Thumbnail removed successfully!')
+        except FileNotFoundError:
+            await event.respond('No thumbnail found to remove.')
 
-    chat = await db.add_channel(query.from_user.id, chat_id, title, username)
-    await bot.send_message(
-        query.from_user.id,
-        "<b>✅ Channel added successfully.</b>" if chat else "<b>⚠️ This channel is already added.</b>",
-        reply_markup=InlineKeyboardMarkup(buttons),
-        parse_mode="HTML"
-    )
+async def start_conversation(event, user_id, conv_type, prompt_message):
+    if user_id in active_conversations:
+        await event.respond('Previous conversation cancelled. Starting new one.')
+    
+    msg = await event.respond(f'{prompt_message}\n\n(Send /cancel to cancel this operation)')
+    active_conversations[user_id] = {'type': conv_type, 'message_id': msg.id}
+
+@gf.on(events.NewMessage(pattern='/cancel'))
+async def cancel_conversation(event):
+    user_id = event.sender_id
+    if user_id in active_conversations:
+        await event.respond('Cancelled enjoy baby...')
+        del active_conversations[user_id]
+
+@gf.on(events.NewMessage())
+async def handle_conversation_input(event):
+    user_id = event.sender_id
+    if user_id not in active_conversations or event.message.text.startswith('/'):
+        return
+        
+    conv_type = active_conversations[user_id]['type']
+    
+    handlers = {
+        'setchat': handle_setchat,
+        'setrename': handle_setrename,
+        'setcaption': handle_setcaption,
+        'setreplacement': handle_setreplacement,
+        'addsession': handle_addsession,
+        'deleteword': handle_deleteword,
+        'setthumb': handle_setthumb
+    }
+    
+    if conv_type in handlers:
+        await handlers[conv_type](event, user_id)
+    
+    if user_id in active_conversations:
+        del active_conversations[user_id]
+
+async def handle_setchat(event, user_id):
+    try:
+        chat_id = event.text.strip()
+        await save_user_data(user_id, 'chat_id', chat_id)
+        await event.respond('✅ Chat ID set successfully!')
+    except Exception as e:
+        await event.respond(f'❌ Error setting chat ID: {e}')
 
   elif type=="editbot": 
      bot = await db.get_bot(user_id)
