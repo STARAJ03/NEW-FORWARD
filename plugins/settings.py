@@ -98,24 +98,47 @@ async def settings_query(bot, query):
        "<b><u>My Channels</b></u>\n\n<b>you can manage your target chats in here</b>",
        reply_markup=InlineKeyboardMarkup(buttons))
 
-  elif type=="addchannel":  
-     await query.message.delete()
-     chat_ids = await bot.ask(chat_id=query.from_user.id, text="<b>❪ SET TARGET CHAT ❫\n\nForward a message from Your target chat\n/cancel - cancel this process</b>")
-     if chat_ids.text=="/cancel":
-        return await chat_ids.reply_text(
-                  "<b>process canceled</b>",
-                  reply_markup=InlineKeyboardMarkup(buttons))
-     elif not chat_ids.forward_date:
-        return await chat_ids.reply("**This is not a forward message**")
-     else:
-        chat_id = chat_ids.forward_from_chat.id
-        title = chat_ids.forward_from_chat.title
-        username = chat_ids.forward_from_chat.username
-        username = "@" + username if username else "private"
-     chat = await db.add_channel(user_id, chat_id, title, username)
-     await query.message.reply_text(
+  elif type == "addchannel":  
+    await query.message.delete()
+    
+    chat_input = await bot.ask(
+        chat_id=query.from_user.id,
+        text="<b>❪ SET TARGET CHAT ❫\n\nSend the @username or numeric ID of your target channel\n/cancel - cancel this process</b>"
+    )
+
+    if chat_input.text == "/cancel":
+        return await chat_input.reply_text(
+            "<b>Process canceled</b>",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+
+    # Extract and validate input
+    user_input = chat_input.text.strip()
+
+    if user_input.startswith("@"):
+        channel_identifier = user_input  # Use @username
+    else:
+        try:
+            channel_identifier = int(user_input)  # Try numeric ID
+        except ValueError:
+            return await chat_input.reply("<b>Invalid input. Please provide a valid @username or numeric ID.</b>")
+
+    try:
+        chat = await bot.get_chat(channel_identifier)
+    except Exception as e:
+        return await chat_input.reply(f"<b>Failed to find chat:</b> {e}")
+
+    chat_id = chat.id
+    title = chat.title
+    username = "@" + chat.username if chat.username else "private"
+
+    chat = await db.add_channel(user_id, chat_id, title, username)
+
+    await query.message.reply_text(
         "<b>Successfully updated</b>" if chat else "<b>This channel already added</b>",
-        reply_markup=InlineKeyboardMarkup(buttons))
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+
 
   elif type=="editbot": 
      bot = await db.get_bot(user_id)
